@@ -1,0 +1,16 @@
+{
+  "name": "tasks_api",
+  "version": "1.0.0",
+  "description": "Thank you for taking the time to complete this short technical exercise. Attached below is a simple Node.js/Express API. It works, but it’s intentionally written in a rough style.",
+  "main": "bad-api.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
