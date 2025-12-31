@@ -1,3 +1,9 @@
+Thank you for taking the time to complete this short technical exercise.
+Attached below is a simple Node.js/Express API. It works, but it’s intentionally written in a rough style.
+
+```js
+// bad-api.js
+
 const express = require('express');
 const app = express()
 const port = 3000;
@@ -58,3 +64,7 @@ app.delete('/tasks/:id',(req,res)=>{
 app.listen(port, () => {
   console.log('Server running on port'+port)
 })
+
+```
+
+Your task: Please refactor this code to make it cleaner, more maintainable, and more professional. You don’t need to add new features - just improve what’s here. Also, please feel free to include comments as you would during normal coding.

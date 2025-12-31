@@ -1,70 +1,248 @@
-Thank you for taking the time to complete this short technical exercise.
-Attached below is a simple Node.js/Express API. It works, but it’s intentionally written in a rough style.
+# Tasks API (Single-File Implementation)
 
-```js
-// bad-api.js
+This project is a clean, production-leaning refactor of a basic Tasks API, intentionally kept in a single file for clarity and portability. It demonstrates better validation, error handling, logging, security hardening, and a repository abstraction while remaining easy to read and test.
 
-const express = require('express');
-const app = express()
-const port = 3000;
+## Purpose
 
-app.use(express.json())
+- Provide a simple Tasks API with professional defaults.
+- Show how to keep a single-file Express app maintainable.
+- Support both in-memory storage (default) and Postgres without changing routes.
 
-let tasks = [
-  {id: 1, title: "Buy milk", done: false},
-  {id: 2, title: "Walk dog", done: true}
-];
+## Architecture
 
-app.get('/tasks', (req, res) => {
-  res.send(tasks)
-})
+Everything lives in `server.js`, but it is organized by clear sections:
 
-app.get('/tasks/:id', (req,res)=>{
-  const id = req.params.id
-  for(let i=0;i<tasks.length;i++){
-    if(tasks[i].id == id){
-      res.json(tasks[i])
-      return
-    }
-  }
-  res.status(404).send('Task not found')
-});
+- **Security & parsing**: HTTP hardening via `helmet`, request body limits, and JSON parsing.
+- **Response helpers**: JSend-style success/fail/error responses for consistent API output.
+- **Validation & parsing**: input validation for request bodies and query parameters.
+- **Repository pattern**: a shared interface with two implementations:
+  - `InMemoryTaskRepository` for tests and demos.
+  - `PostgresTaskRepository` for production usage.
+- **Routes**: versioned routes under `/v1` with pagination, filtering, sorting, and search.
+- **Error handling**: structured logging and consistent error responses.
+- **Graceful shutdown**: closes server and DB pool on SIGINT/SIGTERM.
 
-app.post('/tasks', (req, res) => {
-  const newTask = req.body;
-  newTask.id = tasks.length + 1
-  tasks.push(newTask)
-  res.send(newTask)
-})
+## API Overview
 
-app.put('/tasks/:id', (req,res) => {
-  let id = req.params.id
-  let updated = req.body
-  let found = false
-  tasks.forEach(task => {
-    if(task.id == id){
-      task.title = updated.title
-      task.done = updated.done
-      found = true
-    }
-  })
-  if(found){
-    res.send('Updated')
-  } else {
-    res.status(404).send('Not found')
-  }
-})
+Base URL: `http://localhost:3000`
 
-app.delete('/tasks/:id',(req,res)=>{
-  const id = req.params.id;
-  tasks = tasks.filter(t => t.id != id);
-  res.send('Deleted')
-})
+- `GET /` health endpoint
+- `GET /v1/tasks` list tasks with pagination/filtering
+- `GET /v1/tasks/:id` fetch a task
+- `POST /v1/tasks` create a task
+- `PUT /v1/tasks/:id` update a task
+- `DELETE /v1/tasks/:id` delete a task
 
-app.listen(port, () => {
-  console.log('Server running on port'+port)
-})
+Status codes (common cases):
+
+- `GET /` -> `200`
+- `GET /v1/tasks` -> `200`, `400` on invalid query params
+- `GET /v1/tasks/:id` -> `200`, `400` on invalid id, `404` if not found
+- `POST /v1/tasks` -> `201`, `400` on invalid payload
+- `PUT /v1/tasks/:id` -> `200`, `400` on invalid id/payload, `404` if not found
+- `DELETE /v1/tasks/:id` -> `200`, `400` on invalid id, `404` if not found
+
+Query parameters for `GET /v1/tasks`:
+
+- `limit` (default `20`, max `100`)
+- `offset` (default `0`)
+- `done` (`true` or `false`)
+- `q` (case-insensitive substring match on title)
+- `sort` (`id`, `title`, `done`)
+- `order` (`asc`, `desc`)
+
+## Response Format (JSend)
+
+All routes respond in a JSend-style envelope.
+
+Success example:
 
 ```
+{
+  "status": "success",
+  "data": {
+    "id": 1,
+    "title": "Buy milk",
+    "done": false
+  }
+}
+```
 
-Your task: Please refactor this code to make it cleaner, more maintainable, and more professional. You don’t need to add new features - just improve what’s here. Also, please feel free to include comments as you would during normal coding.
+List pagination example:
+
+```
+{
+  "status": "success",
+  "data": {
+    "items": [
+      { "id": 1, "title": "Buy bread", "done": false },
+      { "id": 2, "title": "Buy milk", "done": false }
+    ],
+    "page": {
+      "limit": 2,
+      "offset": 0,
+      "total": 3,
+      "returned": 2,
+      "hasMore": true
+    },
+    "filters": {
+      "done": false,
+      "q": "buy"
+    },
+    "sort": { "field": "title", "order": "asc" }
+  }
+}
+```
+
+Validation error example:
+
+```
+{
+  "status": "fail",
+  "code": 400,
+  "message": "Invalid task payload.",
+  "details": {
+    "title": "Field \"title\" must be a non-empty string.",
+    "done": "Field \"done\" must be a boolean."
+  }
+}
+```
+
+## cURL Usage
+
+Health check:
+
+```
+curl http://localhost:3000/
+```
+
+List tasks (with filtering and pagination):
+
+```
+curl "http://localhost:3000/v1/tasks?limit=10&offset=0&done=false&q=buy&sort=title&order=asc"
+```
+
+Fetch a task by id:
+
+```
+curl http://localhost:3000/v1/tasks/1
+```
+
+Create a task:
+
+```
+curl -X POST http://localhost:3000/v1/tasks \\
+  -H "Content-Type: application/json" \\
+  -d '{"title":"Buy milk","done":false}'
+```
+
+Update a task:
+
+```
+curl -X PUT http://localhost:3000/v1/tasks/1 \\
+  -H "Content-Type: application/json" \\
+  -d '{"title":"Buy bread","done":true}'
+```
+
+Delete a task:
+
+```
+curl -X DELETE http://localhost:3000/v1/tasks/1
+```
+
+## Configuration
+
+Environment variables:
+
+- `PORT` (default `3000`)
+- `TASKS_REPO` (`memory` or `postgres`; default `memory`)
+- `DATABASE_URL` (required when `TASKS_REPO=postgres`)
+- `PG_POOL_MAX` (default `10`)
+- `PG_IDLE_TIMEOUT` (default `30000` ms)
+- `PG_CONNECTION_TIMEOUT` (default `2000` ms)
+
+Example `.env` (optional):
+
+```
+PORT=3000
+TASKS_REPO=memory
+# TASKS_REPO=postgres
+# DATABASE_URL=postgres://postgres:password@localhost:5432/tasks_dev
+```
+
+Note: Prefer storing credentials in `.env` and avoid committing passwords in docs or code.
+
+Postgres schema:
+
+```
+CREATE TABLE tasks (
+  id SERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  done BOOLEAN NOT NULL DEFAULT FALSE
+);
+```
+
+Local database setup (example):
+
+```
+# The database user must have permission to create databases.
+psql -U postgres -h localhost -c "CREATE DATABASE tasks_dev;"
+psql -U postgres -h localhost -d tasks_dev -c "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title TEXT NOT NULL, done BOOLEAN NOT NULL DEFAULT FALSE);"
+```
+
+Connection test (run before starting the app):
+
+```
+psql -U postgres -h localhost -d tasks_dev -c "SELECT 1;"
+```
+
+Troubleshooting `psql` auth:
+
+- If you see `password authentication failed`, verify the username/password and check `pg_hba.conf`.
+- If you see `role \"postgres\" does not exist`, use a valid local role or create one.
+
+## Run the Project
+
+Install dependencies:
+
+```
+npm install
+```
+
+Run in memory mode (default):
+
+```
+node server.js
+```
+
+Run with Postgres:
+
+```
+TASKS_REPO=postgres DATABASE_URL="postgres://user:pass@localhost:5432/dbname" node server.js
+```
+
+## Tests
+
+The test suite runs contract tests against the in-memory repository, and also against Postgres if `DATABASE_URL` is set.
+
+```
+npm test
+```
+
+Note: `npm test` forces `TASKS_REPO=memory` for faster feedback.
+
+To run Postgres tests:
+
+```
+DATABASE_URL="postgres://user:pass@localhost:5432/dbname" npm run test:pg
+```
+
+When to use which command:
+
+- Use `npm test` for quick local feedback and CI checks.
+- Use `npm run test:pg` when validating Postgres behavior or schema compatibility.
+
+## Notes
+
+- The project intentionally uses a single-file implementation for teaching and portability.
+- If you want a multi-file layout, the sections in `server.js` map cleanly to modules.

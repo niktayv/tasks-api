@@ -2,15 +2,25 @@
   "name": "tasks_api",
   "version": "1.0.0",
   "description": "Thank you for taking the time to complete this short technical exercise. Attached below is a simple Node.js/Express API. It works, but it’s intentionally written in a rough style.",
-  "main": "bad-api.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "cross-env TASKS_REPO=memory node --test --env-file=.env",
+    "test:pg": "cross-env TASKS_REPO=postgres node --test --env-file=.env"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=20.6.0"
+  },
   "type": "commonjs",
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "helmet": "^8.1.0",
+    "pg": "^8.16.3",
+    "pino": "^8.17.2"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
   }
 }
