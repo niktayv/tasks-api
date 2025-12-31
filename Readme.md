@@ -16,8 +16,8 @@ Everything lives in `server.js`, but it is organized by clear sections:
 - **Response helpers**: JSend-style success/fail/error responses for consistent API output.
 - **Validation & parsing**: input validation for request bodies and query parameters.
 - **Repository pattern**: a shared interface with two implementations:
-  - `InMemoryTaskRepository` for tests and demos.
-  - `PostgresTaskRepository` for production usage.
+  - `InMemoryTaskRepository` (used when `DATABASE_URL` is not set)
+  - `PostgresTaskRepository` (used when `DATABASE_URL` is set)
 - **Routes**: versioned routes under `/v1` with pagination, filtering, sorting, and search.
 - **Error handling**: structured logging and consistent error responses.
 - **Graceful shutdown**: closes server and DB pool on SIGINT/SIGTERM.
@@ -155,18 +155,16 @@ curl -X DELETE http://localhost:3000/v1/tasks/1
 Environment variables:
 
 - `PORT` (default `3000`)
-- `TASKS_REPO` (`memory` or `postgres`; default `memory`)
-- `DATABASE_URL` (required when `TASKS_REPO=postgres`)
+- `DATABASE_URL` (optional; if set, uses Postgres repository; otherwise uses in-memory)
 - `PG_POOL_MAX` (default `10`)
 - `PG_IDLE_TIMEOUT` (default `30000` ms)
 - `PG_CONNECTION_TIMEOUT` (default `2000` ms)
+- `PG_STATEMENT_TIMEOUT` (default `5000` ms)
 
 Example `.env` (optional):
 
 ```
 PORT=3000
-TASKS_REPO=memory
-# TASKS_REPO=postgres
 # DATABASE_URL=postgres://postgres:password@localhost:5432/tasks_dev
 ```
 
@@ -190,10 +188,23 @@ psql -U postgres -h localhost -c "CREATE DATABASE tasks_dev;"
 psql -U postgres -h localhost -d tasks_dev -c "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title TEXT NOT NULL, done BOOLEAN NOT NULL DEFAULT FALSE);"
 ```
 
+Create a separate test database (kept isolated from dev/prod data):
+
+```
+psql -U postgres -h localhost -c "CREATE DATABASE tasks_test;"
+psql -U postgres -h localhost -d tasks_test -c "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title TEXT NOT NULL, done BOOLEAN NOT NULL DEFAULT FALSE);"
+```
+
 Connection test (run before starting the app):
 
 ```
 psql -U postgres -h localhost -d tasks_dev -c "SELECT 1;"
+```
+
+Test database connection check:
+
+```
+psql -U postgres -h localhost -d tasks_test -c "SELECT 1;"
 ```
 
 Troubleshooting `psql` auth:
@@ -209,16 +220,16 @@ Install dependencies:
 npm install
 ```
 
-Run in memory mode (default):
+Run in development mode (uses in-memory repository by default):
 
 ```
-node server.js
+npm run dev
 ```
 
-Run with Postgres:
+Run in production mode (requires `DATABASE_URL` for Postgres):
 
 ```
-TASKS_REPO=postgres DATABASE_URL="postgres://user:pass@localhost:5432/dbname" node server.js
+DATABASE_URL="postgres://user:pass@localhost:5432/dbname" npm start
 ```
 
 ## Tests
@@ -229,18 +240,9 @@ The test suite runs contract tests against the in-memory repository, and also ag
 npm test
 ```
 
-Note: `npm test` forces `TASKS_REPO=memory` for faster feedback.
+The test script uses `.env.test` for environment variables. If `DATABASE_URL` is configured there, it will test both repositories; otherwise, only the in-memory repository is tested.
 
-To run Postgres tests:
-
-```
-DATABASE_URL="postgres://user:pass@localhost:5432/dbname" npm run test:pg
-```
-
-When to use which command:
-
-- Use `npm test` for quick local feedback and CI checks.
-- Use `npm run test:pg` when validating Postgres behavior or schema compatibility.
+Keep `.env.example` checked in and ignore real `.env*` files. Use `.env.test.example` as a template for your test environment.
 
 ## Notes
 

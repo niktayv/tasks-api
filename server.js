@@ -313,15 +313,10 @@ function PostgresTaskRepository(pool) {
 // Choose repository implementation
 // -----------------------------------------------------------------------------
 
-const repoKind = (process.env.TASKS_REPO || "memory").toLowerCase();
-
 let taskRepo;
 let pgPool = null;
 
-if (repoKind === "postgres") {
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL is required when TASKS_REPO=postgres');
-  }
+if (process.env.DATABASE_URL) {
   try {
     // DATABASE_URL example: postgres://user:pass@localhost:5432/dbname
     const poolConfig = {

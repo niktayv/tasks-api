@@ -221,12 +221,11 @@ function defineRepoContractSuite(name) {
 defineRepoContractSuite("in-memory");
 
 const DATABASE_URL = process.env.DATABASE_URL;
-const TASKS_REPO = (process.env.TASKS_REPO || "memory").toLowerCase();
 
-if (TASKS_REPO === "postgres" && DATABASE_URL) {
+if (DATABASE_URL) {
   defineRepoContractSuite("postgres");
 } else {
-  test("postgres suite skipped (TASKS_REPO not postgres or DATABASE_URL not set)", () => {
+  test("postgres suite skipped (DATABASE_URL not set)", () => {
     assert.ok(true);
   });
 }

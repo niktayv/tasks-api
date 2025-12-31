@@ -4,8 +4,9 @@
   "description": "Thank you for taking the time to complete this short technical exercise. Attached below is a simple Node.js/Express API. It works, but it’s intentionally written in a rough style.",
   "main": "server.js",
   "scripts": {
-    "test": "cross-env TASKS_REPO=memory node --test --env-file=.env",
-    "test:pg": "cross-env TASKS_REPO=postgres node --test --env-file=.env"
+    "dev": "node --watch --env-file=.env server.js",
+    "start": "node server.js",
+    "test": "node --test --env-file=.env.test"
   },
   "keywords": [],
   "author": "",
@@ -19,8 +20,5 @@
     "helmet": "^8.1.0",
     "pg": "^8.16.3",
     "pino": "^8.17.2"
-  },
-  "devDependencies": {
-    "cross-env": "^10.1.0"
   }
 }
