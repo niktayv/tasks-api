@@ -17,6 +17,7 @@ Already covered: structured logging, DB-aware health check, basic HTTP tests (JS
 - Limit search query length (`q`) to prevent abusive scans.
 - Add `pg.Pool` error handlers (`pool.on("error", ...)`).
 - Add process-level error handlers (`unhandledRejection`, `uncaughtException`).
+- Clarify/restore repository selection behavior (`DATABASE_URL` now overrides any desire to force in-memory).
 
 ## Nice to Have
 
@@ -26,5 +27,4 @@ Already covered: structured logging, DB-aware health check, basic HTTP tests (JS
 - Cache headers (for read endpoints, if appropriate).
 - Database migrations.
 - More tests (basic HTTP JSend/validation coverage exists; add error paths and edge cases).
-- Document `PG_STATEMENT_TIMEOUT` in `Readme.md`/`.env.example`.
 - Consider allowing `0` for `PG_STATEMENT_TIMEOUT` (disable) and document expected ranges for `parseEnvInt`.

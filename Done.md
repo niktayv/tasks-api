@@ -7,7 +7,7 @@ This project has already addressed the following improvements versus the initial
 - Structured logging with Pino (configurable `LOG_LEVEL`, contextual errors, sanitized headers).
 - Health check verifies DB connectivity and reports DB mode; returns 503 if unavailable.
 - Graceful shutdown with timeout protection and safe pool shutdown.
-- Postgres configuration via env (`PG_POOL_MAX`, `PG_IDLE_TIMEOUT`, `PG_CONNECTION_TIMEOUT`, `PG_STATEMENT_TIMEOUT`) and required `DATABASE_URL`.
+- Postgres configuration via env (`PG_POOL_MAX`, `PG_IDLE_TIMEOUT`, `PG_CONNECTION_TIMEOUT`, `PG_STATEMENT_TIMEOUT`), enabled when `DATABASE_URL` is set.
 - Safer search queries via LIKE wildcard escaping.
 - Pagination optimized with a single query using `COUNT(*) OVER()`.
 - JSend responses everywhere with consistent status handling.
@@ -43,7 +43,7 @@ This project has already addressed the following improvements versus the initial
    - DELETE returns confirmation or 404.
 
 7) Environment configuration
-   - `PORT`, `TASKS_REPO`, `DATABASE_URL`.
+   - `PORT` and `DATABASE_URL` (Postgres enabled when present).
    - Pool tuning envs + statement timeout.
 
 8) Security improvements

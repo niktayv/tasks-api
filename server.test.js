@@ -6,8 +6,7 @@
  * Run:
  *   npm test
  *
- * To also run against Postgres:
- *   DATABASE_URL="postgres://<user>:<pass>@localhost:5432/<db_name>" npm test
+ * Postgres runs when DATABASE_URL is set in the env file.
  *
  * Postgres schema assumed:
  *   CREATE TABLE tasks (
