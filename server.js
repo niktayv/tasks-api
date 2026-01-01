@@ -27,7 +27,7 @@ app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 // Logging helpers
 // -----------------------------------------------------------------------------
 
-function sanitizeHeaders(headers) {
+function redactHeadersForLog(headers) {
   // Normalize header keys to lowercase for case-insensitive matching
   const normalized = {};
   for (const [key, value] of Object.entries(headers)) {
@@ -266,8 +266,8 @@ function PostgresTaskRepository(pool) {
         LIMIT $${i++} OFFSET $${i++};
       `;
       const queryParams = params.concat([limit, offset]);
-      const res = await pool.query(sql, queryParams);
-      const rows = res.rows;
+      const result = await pool.query(sql, queryParams);
+      const rows = result.rows;
 
       const total = rows.length > 0 ? rows[0].total : 0;
       const items = rows.map(row => {
@@ -542,7 +542,7 @@ v1.delete("/tasks/:id", async (req, res, next) => {
 app.use("/v1", v1);
 
 // -----------------------------------------------------------------------------
-// Version-aware 404 handlers
+// Not found handlers (JSend everywhere)
 // -----------------------------------------------------------------------------
 
 app.use("/v1", (req, res) => {
@@ -554,7 +554,7 @@ app.use((req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// Version-aware error handlers (must have 4 args)
+// Error handlers (JSend everywhere; must have 4 args
 // -----------------------------------------------------------------------------
 
 app.use("/v1", (err, req, res, next) => {
@@ -563,7 +563,7 @@ app.use("/v1", (err, req, res, next) => {
     req: {
       method: req.method,
       url: req.originalUrl,
-      headers: sanitizeHeaders(req.headers),
+      headers: redactHeadersForLog(req.headers),
     },
   }, "Unhandled error in /v1 middleware");
   sendError(res, 500, "Internal server error");
@@ -575,9 +575,9 @@ app.use((err, req, res, next) => {
     req: {
       method: req.method,
       url: req.originalUrl,
-      headers: sanitizeHeaders(req.headers),
+      headers: redactHeadersForLog(req.headers),
     },
-  }, "Unhandled error in general middleware");
+  }, "Unhandled error");
   sendError(res, 500, "Internal server error");
 });
 
