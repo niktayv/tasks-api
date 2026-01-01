@@ -66,9 +66,9 @@ function defineRepoContractSuite(name) {
 
     test.beforeEach(async () => {
       if (name === 'postgres') {
-        repo = PostgresTaskRepository(contractPool);
         try {
           await contractPool.query("TRUNCATE TABLE tasks RESTART IDENTITY;");
+          repo = PostgresTaskRepository(contractPool);
         } catch (err) {
           console.error('Test setup failed: unable to truncate tasks table', err);
           throw err;
