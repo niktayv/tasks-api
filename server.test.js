@@ -239,20 +239,27 @@ test.describe("HTTP API", () => {
     }
   });
 
-  test("non-/v1 404 returns JSend response", async () => {
+  async function withServer(handler) {
     const server = app.listen(0);
     const { port } = server.address();
+    const baseUrl = `http://127.0.0.1:${port}`;
 
     try {
-      const res = await fetch(`http://127.0.0.1:${port}/nope`);
+      await handler(baseUrl);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  }
+
+  test("non-/v1 404 returns JSend response", async () => {
+    await withServer(async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/nope`);
       assert.equal(res.status, 404);
 
       const body = await res.json();
       assert.equal(body.status, "fail");
       assert.equal(body.message, "Not found");
-    } finally {
-      await new Promise((resolve) => server.close(resolve));
-    }
+    });
   });
 
   test("health check returns 503 when database is unavailable", async () => {
@@ -266,34 +273,20 @@ test.describe("HTTP API", () => {
       },
     };
 
-    const server = app.listen(0);
-    const { port } = server.address();
-
     try {
-      const res = await fetch(`http://127.0.0.1:${port}/`);
-      assert.equal(res.status, 503);
+      await withServer(async (baseUrl) => {
+        const res = await fetch(`${baseUrl}/`);
+        assert.equal(res.status, 503);
 
-      const body = await res.json();
-      assert.equal(body.status, "error");
-      assert.equal(body.message, "Service unavailable");
+        const body = await res.json();
+        assert.equal(body.status, "error");
+        assert.equal(body.message, "Service unavailable");
+      });
     } finally {
       app.locals.pgPool = originalPool;
       logger.error = originalLoggerError;
-      await new Promise((resolve) => server.close(resolve));
     }
   });
-
-  async function withServer(handler) {
-    const server = app.listen(0);
-    const { port } = server.address();
-    const baseUrl = `http://127.0.0.1:${port}`;
-
-    try {
-      await handler(baseUrl);
-    } finally {
-      await new Promise((resolve) => server.close(resolve));
-    }
-  }
 
   async function resetPostgresIfEnabled() {
     if (!app.locals.pgPool) return;
