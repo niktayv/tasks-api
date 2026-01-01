@@ -32,8 +32,8 @@ const { app, InMemoryTaskRepository, PostgresTaskRepository, logger } = require(
 function defineRepoContractSuite(name) {
   test.describe(`TaskRepository contract: ${name}`, () => {
     let repo;
-    let pool; // for postgres
-    let cleanup;
+    let contractPool; // for postgres
+    let cleanupContractPool;
     let nonExistentId;
 
     test.before(async () => {
@@ -43,32 +43,32 @@ function defineRepoContractSuite(name) {
         }
         try {
           const { Pool } = await import('pg');
-          pool = new Pool({ connectionString: process.env.DATABASE_URL });
+          contractPool = new Pool({ connectionString: process.env.DATABASE_URL });
           // Test the connection
-          const client = await pool.connect();
+          const client = await contractPool.connect();
           client.release();
-          cleanup = async () => { await pool.end(); };
+          cleanupContractPool = async () => { await contractPool.end(); };
         } catch (err) {
           console.error('Failed to setup Postgres pool:', err.message);
-          if (pool) {
-            try { await pool.end(); } catch (e) { /* ignore */ }
+          if (contractPool) {
+            try { await contractPool.end(); } catch (e) { /* ignore */ }
           }
           throw err;
         }
       } else {
-        cleanup = async () => {};
+        cleanupContractPool = async () => {};
       }
     });
 
     test.after(async () => {
-      await cleanup();
+      await cleanupContractPool();
     });
 
     test.beforeEach(async () => {
       if (name === 'postgres') {
-        repo = PostgresTaskRepository(pool);
+        repo = PostgresTaskRepository(contractPool);
         try {
-          await pool.query("TRUNCATE TABLE tasks RESTART IDENTITY;");
+          await contractPool.query("TRUNCATE TABLE tasks RESTART IDENTITY;");
         } catch (err) {
           console.error('Test setup failed: unable to truncate tasks table', err);
           throw err;
