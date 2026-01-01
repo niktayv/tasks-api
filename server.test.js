@@ -217,130 +217,134 @@ function defineRepoContractSuite(name) {
 // Run against in-memory and (optionally) Postgres
 // -----------------------------------------------------------------------------
 
-defineRepoContractSuite("in-memory");
+test.describe("TaskRepository contract", () => {
+  defineRepoContractSuite("in-memory");
 
-const DATABASE_URL = process.env.DATABASE_URL;
+  const DATABASE_URL = process.env.DATABASE_URL;
 
-if (DATABASE_URL) {
-  defineRepoContractSuite("postgres");
-} else {
-  test("postgres suite skipped (DATABASE_URL not set)", () => {
-    assert.ok(true);
-  });
-}
-
-test.after(async () => {
-  if (app.locals.pgPool) {
-    await app.locals.pgPool.end();
-    app.locals.pgPool = null;
-  }
-});
-
-test("non-/v1 404 returns JSend response", async () => {
-  const server = app.listen(0);
-  const { port } = server.address();
-
-  try {
-    const res = await fetch(`http://127.0.0.1:${port}/nope`);
-    assert.equal(res.status, 404);
-
-    const body = await res.json();
-    assert.equal(body.status, "fail");
-    assert.equal(body.message, "Not found");
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
-});
-
-test("health check returns 503 when database is unavailable", async () => {
-  const originalLoggerError = logger.error;
-  logger.error = () => {};
-
-  const originalPool = app.locals.pgPool;
-  app.locals.pgPool = {
-    async query() {
-      throw new Error("db down");
-    },
-  };
-
-  const server = app.listen(0);
-  const { port } = server.address();
-
-  try {
-    const res = await fetch(`http://127.0.0.1:${port}/`);
-    assert.equal(res.status, 503);
-
-    const body = await res.json();
-    assert.equal(body.status, "error");
-    assert.equal(body.message, "Service unavailable");
-  } finally {
-    app.locals.pgPool = originalPool;
-    logger.error = originalLoggerError;
-    await new Promise((resolve) => server.close(resolve));
-  }
-});
-
-async function withServer(handler) {
-  const server = app.listen(0);
-  const { port } = server.address();
-  const baseUrl = `http://127.0.0.1:${port}`;
-
-  try {
-    await handler(baseUrl);
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
-}
-
-async function resetPostgresIfEnabled() {
-  if (!app.locals.pgPool) return;
-  try {
-    await app.locals.pgPool.query("TRUNCATE TABLE tasks RESTART IDENTITY;");
-  } catch (err) {
-    throw new Error(`Failed to truncate tasks table: ${err.message}`);
-  }
-}
-
-test("v1: POST validates payload and returns JSend fail", async () => {
-  await withServer(async (baseUrl) => {
-    const res = await fetch(`${baseUrl}/v1/tasks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "", done: "nope" }),
+  if (DATABASE_URL) {
+    defineRepoContractSuite("postgres");
+  } else {
+    test("postgres suite skipped (DATABASE_URL not set)", () => {
+      assert.ok(true);
     });
-
-    assert.equal(res.status, 400);
-    const body = await res.json();
-    assert.equal(body.status, "fail");
-    assert.equal(body.message, "Invalid task payload.");
-    assert.ok(body.details);
-  });
+  }
 });
 
-test("v1: list pagination returns JSend envelope", async () => {
-  await resetPostgresIfEnabled();
+test.describe("HTTP API", () => {
+  test.after(async () => {
+    if (app.locals.pgPool) {
+      await app.locals.pgPool.end();
+      app.locals.pgPool = null;
+    }
+  });
 
-  await withServer(async (baseUrl) => {
-    const create = (title) => fetch(`${baseUrl}/v1/tasks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, done: false }),
+  test("non-/v1 404 returns JSend response", async () => {
+    const server = app.listen(0);
+    const { port } = server.address();
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/nope`);
+      assert.equal(res.status, 404);
+
+      const body = await res.json();
+      assert.equal(body.status, "fail");
+      assert.equal(body.message, "Not found");
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  test("health check returns 503 when database is unavailable", async () => {
+    const originalLoggerError = logger.error;
+    logger.error = () => {};
+
+    const originalPool = app.locals.pgPool;
+    app.locals.pgPool = {
+      async query() {
+        throw new Error("db down");
+      },
+    };
+
+    const server = app.listen(0);
+    const { port } = server.address();
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/`);
+      assert.equal(res.status, 503);
+
+      const body = await res.json();
+      assert.equal(body.status, "error");
+      assert.equal(body.message, "Service unavailable");
+    } finally {
+      app.locals.pgPool = originalPool;
+      logger.error = originalLoggerError;
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  async function withServer(handler) {
+    const server = app.listen(0);
+    const { port } = server.address();
+    const baseUrl = `http://127.0.0.1:${port}`;
+
+    try {
+      await handler(baseUrl);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  }
+
+  async function resetPostgresIfEnabled() {
+    if (!app.locals.pgPool) return;
+    try {
+      await app.locals.pgPool.query("TRUNCATE TABLE tasks RESTART IDENTITY;");
+    } catch (err) {
+      throw new Error(`Failed to truncate tasks table: ${err.message}`);
+    }
+  }
+
+  test("v1: POST validates payload and returns JSend fail", async () => {
+    await withServer(async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/v1/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "", done: "nope" }),
+      });
+
+      assert.equal(res.status, 400);
+      const body = await res.json();
+      assert.equal(body.status, "fail");
+      assert.equal(body.message, "Invalid task payload.");
+      assert.ok(body.details);
     });
+  });
 
-    await create("Task A");
-    await create("Task B");
+  test("v1: list pagination returns JSend envelope", async () => {
+    await resetPostgresIfEnabled();
 
-    const res = await fetch(`${baseUrl}/v1/tasks?limit=1&offset=0&sort=id&order=asc`);
-    assert.equal(res.status, 200);
+    await withServer(async (baseUrl) => {
+      const create = (title) => fetch(`${baseUrl}/v1/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, done: false }),
+      });
 
-    const body = await res.json();
-    assert.equal(body.status, "success");
-    assert.ok(Array.isArray(body.data.items));
-    assert.equal(body.data.page.limit, 1);
-    assert.equal(body.data.page.offset, 0);
-    assert.equal(body.data.page.returned, body.data.items.length);
-    assert.ok(body.data.page.total >= 2);
-    assert.equal(body.data.sort.field, "id");
-    assert.equal(body.data.sort.order, "asc");
+      await create("Task A");
+      await create("Task B");
+
+      const res = await fetch(`${baseUrl}/v1/tasks?limit=1&offset=0&sort=id&order=asc`);
+      assert.equal(res.status, 200);
+
+      const body = await res.json();
+      assert.equal(body.status, "success");
+      assert.ok(Array.isArray(body.data.items));
+      assert.equal(body.data.page.limit, 1);
+      assert.equal(body.data.page.offset, 0);
+      assert.equal(body.data.page.returned, body.data.items.length);
+      assert.ok(body.data.page.total >= 2);
+      assert.equal(body.data.sort.field, "id");
+      assert.equal(body.data.sort.order, "asc");
+    });
   });
 });
