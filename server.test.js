@@ -232,6 +232,8 @@ test.describe("TaskRepository contract", () => {
 });
 
 test.describe("HTTP API", () => {
+  // NOTE: These tests mutate shared app state (app.locals.pgPool).
+  // Run test files with concurrency disabled, or keep this block non-concurrent.
   test.after(async () => {
     if (app.locals.pgPool) {
       await app.locals.pgPool.end();
