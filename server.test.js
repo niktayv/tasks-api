@@ -34,6 +34,7 @@ function defineRepoContractSuite(name) {
     let repo;
     let contractPool; // for postgres
     let cleanupContractPool;
+    let contractClient;
     let nonExistentId;
 
     test.before(async () => {
@@ -47,6 +48,7 @@ function defineRepoContractSuite(name) {
           // Test the connection
           const client = await contractPool.connect();
           client.release();
+          await contractPool.query("TRUNCATE TABLE tasks RESTART IDENTITY;");
           cleanupContractPool = async () => { await contractPool.end(); };
         } catch (err) {
           console.error('Failed to setup Postgres pool:', err.message);
@@ -67,16 +69,32 @@ function defineRepoContractSuite(name) {
     test.beforeEach(async () => {
       if (name === 'postgres') {
         try {
-          await contractPool.query("TRUNCATE TABLE tasks RESTART IDENTITY;");
-          repo = PostgresTaskRepository(contractPool);
+          contractClient = await contractPool.connect();
+          await contractClient.query("BEGIN");
+          repo = PostgresTaskRepository(contractClient);
         } catch (err) {
-          console.error('Test setup failed: unable to truncate tasks table', err);
+          if (contractClient) {
+            contractClient.release();
+            contractClient = null;
+          }
+          console.error('Test setup failed: unable to start transaction', err);
           throw err;
         }
       } else {
         repo = InMemoryTaskRepository([]);
       }
       nonExistentId = -1; // guaranteed invalid since IDs are positive
+    });
+
+    test.afterEach(async () => {
+      if (name === 'postgres' && contractClient) {
+        try {
+          await contractClient.query("ROLLBACK");
+        } finally {
+          contractClient.release();
+          contractClient = null;
+        }
+      }
     });
 
     test("list() returns deterministic ordering and correct totals", async () => {
