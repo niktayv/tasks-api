@@ -14,6 +14,7 @@ const {
   query,
   validationResult,
 } = require("express-validator");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 
@@ -85,12 +86,19 @@ const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 if (allowCredentials && allowedOrigins.includes("*")) {
   throw new Error('ALLOWED_ORIGINS cannot include "*" when ALLOW_CREDENTIALS=true');
 }
+const rateLimitWindowMs = parseEnvInt("RATE_LIMIT_WINDOW_MS", 15 * 60 * 1000);
+const rateLimitMax = parseEnvInt("RATE_LIMIT_MAX", 100);
+if (rateLimitWindowMs < 1000) {
+  throw new Error('RATE_LIMIT_WINDOW_MS must be at least 1000');
+}
 
 // -----------------------------------------------------------------------------
 // Basic security & hardening
 // -----------------------------------------------------------------------------
 
 app.disable("x-powered-by");
+// Trust first proxy (e.g., when behind a load balancer)
+app.set("trust proxy", 1);
 app.use(helmet());
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: false, limit: "100kb" }));
@@ -484,6 +492,17 @@ app.get("/", (req, res) => {
 // -----------------------------------------------------------------------------
 
 const v1 = express.Router();
+const v1RateLimiter = rateLimit({
+  windowMs: rateLimitWindowMs,
+  limit: rateLimitMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    sendFail(res, 429, "Too many requests, please try again later.");
+  },
+});
+
+v1.use(v1RateLimiter);
 
 v1.get(
   "/tasks",
