@@ -304,7 +304,12 @@ test.describe("HTTP API", () => {
       delete require.cache[require.resolve("./server")];
       loaded = require("./server");
     });
-    return loaded;
+    return {
+      ...loaded,
+      cleanup() {
+        delete require.cache[require.resolve("./server")];
+      },
+    };
   }
 
   test("non-/v1 404 returns JSend response", async () => {
@@ -378,28 +383,32 @@ test.describe("HTTP API", () => {
   });
 
   test("cors allows listed origins and blocks others", async () => {
-    const { app: corsApp } = loadServerFresh({
+    const { app: corsApp, cleanup } = loadServerFresh({
       ALLOWED_ORIGINS: "https://example.com, https://api.example.com",
       ALLOW_CREDENTIALS: "false",
       DATABASE_URL: "",
     });
 
-    await withServerForApp(corsApp, async (baseUrl) => {
-      const allowed = await fetch(`${baseUrl}/`, {
-        headers: { Origin: "https://example.com" },
-      });
-      assert.equal(allowed.status, 200);
-      assert.equal(
-        allowed.headers.get("access-control-allow-origin"),
-        "https://example.com"
-      );
+    try {
+      await withServerForApp(corsApp, async (baseUrl) => {
+        const allowed = await fetch(`${baseUrl}/`, {
+          headers: { Origin: "https://example.com" },
+        });
+        assert.equal(allowed.status, 200);
+        assert.equal(
+          allowed.headers.get("access-control-allow-origin"),
+          "https://example.com"
+        );
 
-      const blocked = await fetch(`${baseUrl}/`, {
-        headers: { Origin: "https://blocked.example.com" },
+        const blocked = await fetch(`${baseUrl}/`, {
+          headers: { Origin: "https://blocked.example.com" },
+        });
+        assert.equal(blocked.status, 200);
+        assert.equal(blocked.headers.get("access-control-allow-origin"), null);
       });
-      assert.equal(blocked.status, 200);
-      assert.equal(blocked.headers.get("access-control-allow-origin"), null);
-    });
+    } finally {
+      cleanup();
+    }
   });
 
   async function resetPostgresIfEnabled() {
