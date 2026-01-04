@@ -322,6 +322,15 @@ test.describe("HTTP API", () => {
     });
   });
 
+  test("responses include X-Request-ID header", async () => {
+    await withServer(async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/health`);
+      assert.equal(res.status, 200);
+      const requestId = res.headers.get("x-request-id");
+      assert.ok(requestId);
+    });
+  });
+
   async function resetPostgresIfEnabled() {
     if (!app.locals.pgPool) return;
     try {
