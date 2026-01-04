@@ -275,7 +275,7 @@ test.describe("HTTP API", () => {
     }
   }
 
-  function withEnv(env, fn) {
+  async function withEnv(env, fn) {
     const previous = {};
     for (const [key, value] of Object.entries(env)) {
       previous[key] = process.env[key];
@@ -286,7 +286,7 @@ test.describe("HTTP API", () => {
       }
     }
     try {
-      return fn();
+      return await fn();
     } finally {
       for (const [key, value] of Object.entries(previous)) {
         if (value === undefined) {
@@ -298,18 +298,20 @@ test.describe("HTTP API", () => {
     }
   }
 
-  function loadServerFresh(env) {
+  async function withIsolatedServer(env, handler) {
+    if (!env || typeof env !== "object") {
+      throw new Error("withIsolatedServer must be called with an env object.");
+    }
     let loaded;
-    withEnv(env, () => {
+    await withEnv(env, () => {
       delete require.cache[require.resolve("./server")];
       loaded = require("./server");
     });
-    return {
-      ...loaded,
-      cleanup() {
-        delete require.cache[require.resolve("./server")];
-      },
-    };
+    try {
+      return await handler(loaded);
+    } finally {
+      delete require.cache[require.resolve("./server")];
+    }
   }
 
   test("non-/v1 404 returns JSend response", async () => {
@@ -383,32 +385,31 @@ test.describe("HTTP API", () => {
   });
 
   test("cors allows listed origins and blocks others", async () => {
-    const { app: corsApp, cleanup } = loadServerFresh({
-      ALLOWED_ORIGINS: "https://example.com, https://api.example.com",
-      ALLOW_CREDENTIALS: "false",
-      DATABASE_URL: "",
-    });
+    await withIsolatedServer(
+      {
+        ALLOWED_ORIGINS: "https://example.com, https://api.example.com",
+        ALLOW_CREDENTIALS: "false",
+        DATABASE_URL: "",
+      },
+      async ({ app: corsApp }) => {
+        await withServerForApp(corsApp, async (baseUrl) => {
+          const allowed = await fetch(`${baseUrl}/`, {
+            headers: { Origin: "https://example.com" },
+          });
+          assert.equal(allowed.status, 200);
+          assert.equal(
+            allowed.headers.get("access-control-allow-origin"),
+            "https://example.com"
+          );
 
-    try {
-      await withServerForApp(corsApp, async (baseUrl) => {
-        const allowed = await fetch(`${baseUrl}/`, {
-          headers: { Origin: "https://example.com" },
+          const blocked = await fetch(`${baseUrl}/`, {
+            headers: { Origin: "https://blocked.example.com" },
+          });
+          assert.equal(blocked.status, 200);
+          assert.equal(blocked.headers.get("access-control-allow-origin"), null);
         });
-        assert.equal(allowed.status, 200);
-        assert.equal(
-          allowed.headers.get("access-control-allow-origin"),
-          "https://example.com"
-        );
-
-        const blocked = await fetch(`${baseUrl}/`, {
-          headers: { Origin: "https://blocked.example.com" },
-        });
-        assert.equal(blocked.status, 200);
-        assert.equal(blocked.headers.get("access-control-allow-origin"), null);
-      });
-    } finally {
-      cleanup();
-    }
+      }
+    );
   });
 
   async function resetPostgresIfEnabled() {

@@ -18,6 +18,7 @@ Already covered: structured logging, DB-aware health check, basic HTTP tests (JS
 - Add `pg.Pool` error handlers (`pool.on("error", ...)`).
 - Add process-level error handlers (`unhandledRejection`, `uncaughtException`).
 - Clarify/restore repository selection behavior (`DATABASE_URL` now overrides any desire to force in-memory).
+- Note: tests can fail in sandboxed environments due to restricted network binding/DB access; document or adjust test harness to handle this gracefully.
 
 ## Nice to Have
 

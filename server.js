@@ -7,6 +7,13 @@ const pino = require("pino");
 const pinoHttp = require("pino-http");
 const { randomUUID } = require("node:crypto");
 const cors = require("cors");
+const {
+  body,
+  matchedData,
+  param,
+  query,
+  validationResult,
+} = require("express-validator");
 
 const app = express();
 
@@ -158,63 +165,19 @@ function sendError(res, statusCode, message) {
 }
 
 // -----------------------------------------------------------------------------
-// Query parsing helpers
-// -----------------------------------------------------------------------------
-
-function parseNonNegativeInt(value, defaultValue) {
-  if (value === undefined) return defaultValue;
-  const n = Number.parseInt(String(value), 10);
-  return Number.isFinite(n) && n >= 0 ? n : null;
-}
-
-function parseBooleanQuery(value) {
-  if (value === undefined) return undefined;
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return null;
-}
-
-function parseSortField(value) {
-  if (value === undefined) return "id";
-  const v = String(value);
-  return v === "id" || v === "title" || v === "done" ? v : null;
-}
-
-function parseSortOrder(value) {
-  if (value === undefined) return "asc";
-  const v = String(value).toLowerCase();
-  return v === "asc" || v === "desc" ? v : null;
-}
-
-// -----------------------------------------------------------------------------
 // Validation helpers
 // -----------------------------------------------------------------------------
 
-function parseTaskId(req) {
-  const id = Number.parseInt(req.params.id, 10);
-  return Number.isFinite(id) && id > 0 ? id : null;
-}
-
-function validateTaskPayload(body) {
-  if (body == null || typeof body !== "object") {
-    return { message: "Request body must be a JSON object." };
-  }
-
-  const errors = {};
-
-  if (typeof body.title !== "string" || body.title.trim() === "") {
-    errors.title = 'Field "title" must be a non-empty string.';
-  }
-
-  if (typeof body.done !== "boolean") {
-    errors.done = 'Field "done" must be a boolean.';
-  }
-
-  if (Object.keys(errors).length > 0) {
-    return { message: "Invalid task payload.", errors };
-  }
-
-  return null;
+/**
+ * Wrap express-validator checks into a JSend-aware middleware.
+ */
+function validate(validations, message) {
+  return async (req, res, next) => {
+    await Promise.all(validations.map((validation) => validation.run(req)));
+    const errors = validationResult(req);
+    if (errors.isEmpty()) return next();
+    return sendFail(res, 400, message, { validation: errors.array() });
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -522,117 +485,143 @@ app.get("/", (req, res) => {
 
 const v1 = express.Router();
 
-v1.get("/tasks", async (req, res, next) => {
-  try {
-    const limitRaw = parseNonNegativeInt(req.query.limit, 20);
-    const offset = parseNonNegativeInt(req.query.offset, 0);
-    const done = parseBooleanQuery(req.query.done);
-    const sort = parseSortField(req.query.sort);
-    const order = parseSortOrder(req.query.order);
+v1.get(
+  "/tasks",
+  validate(
+    [
+      query("limit").optional().isInt({ min: 0, max: 100 }).toInt(),
+      query("offset").optional().isInt({ min: 0 }).toInt(),
+      query("done").optional().isBoolean().toBoolean(),
+      query("sort").optional().isIn(["id", "title", "done"]),
+      query("order").optional().isIn(["asc", "desc"]),
+      query("q").optional().trim(),
+    ],
+    "Invalid query parameters."
+  ),
+  async (req, res, next) => {
+    try {
+      const data = matchedData(req, { locations: ["query"] });
+      const limit = data.limit ?? 20;
+      const offset = data.offset ?? 0;
+      const done = data.done;
+      const sort = data.sort ?? "id";
+      const order = data.order ?? "asc";
 
-    if (limitRaw === null) return sendFail(res, 400, 'Query parameter "limit" must be a non-negative integer.');
-    if (offset === null) return sendFail(res, 400, 'Query parameter "offset" must be a non-negative integer.');
-    if (done === null) return sendFail(res, 400, 'Query parameter "done" must be "true" or "false".');
-    if (sort === null) return sendFail(res, 400, 'Query parameter "sort" must be one of: id, title, done.');
-    if (order === null) return sendFail(res, 400, 'Query parameter "order" must be "asc" or "desc".');
+      const q = typeof data.q === "string" ? data.q.trim() : "";
+      const qFilter = q.length > 0 ? q : undefined;
 
-    const limit = Math.min(limitRaw, 100);
-
-    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
-    const qFilter = q.length > 0 ? q : undefined;
-
-    const { items, total } = await taskRepo.list({
-      limit,
-      offset,
-      done,
-      q: qFilter,
-      sort,
-      order,
-    });
-
-    sendSuccess(res, {
-      items,
-      page: {
+      const { items, total } = await taskRepo.list({
         limit,
         offset,
-        total,
-        returned: items.length,
-        hasMore: offset + items.length < total,
-      },
-      filters: {
         done,
         q: qFilter,
-      },
-      sort: { field: sort, order },
-    });
-  } catch (err) {
-    next(err);
+        sort,
+        order,
+      });
+
+      sendSuccess(res, {
+        items,
+        page: {
+          limit,
+          offset,
+          total,
+          returned: items.length,
+          hasMore: offset + items.length < total,
+        },
+        filters: {
+          done,
+          q: qFilter,
+        },
+        sort: { field: sort, order },
+      });
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
-v1.get("/tasks/:id", async (req, res, next) => {
-  try {
-    const id = parseTaskId(req);
-    if (id === null) return sendFail(res, 400, "Invalid task id.");
+v1.get(
+  "/tasks/:id",
+  validate([param("id").isInt({ min: 1 }).toInt()], "Invalid task id."),
+  async (req, res, next) => {
+    try {
+      const { id } = matchedData(req, { locations: ["params"] });
+      const task = await taskRepo.getById(id);
+      if (!task) return sendFail(res, 404, "Task not found.");
 
-    const task = await taskRepo.getById(id);
-    if (!task) return sendFail(res, 404, "Task not found.");
-
-    sendSuccess(res, task);
-  } catch (err) {
-    next(err);
+      sendSuccess(res, task);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
-v1.post("/tasks", async (req, res, next) => {
-  try {
-    const validation = validateTaskPayload(req.body);
-    if (validation) return sendFail(res, 400, validation.message, validation.errors);
+v1.post(
+  "/tasks",
+  validate(
+    [
+      body("title").isString().trim().notEmpty(),
+      body("done").isBoolean().toBoolean(),
+    ],
+    "Invalid task payload."
+  ),
+  async (req, res, next) => {
+    try {
+      const data = matchedData(req, { locations: ["body"] });
+      const created = await taskRepo.create({
+        title: data.title,
+        done: data.done,
+      });
 
-    const created = await taskRepo.create({
-      title: req.body.title.trim(),
-      done: req.body.done,
-    });
-
-    sendSuccess(res, created, 201);
-  } catch (err) {
-    next(err);
+      sendSuccess(res, created, 201);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
-v1.put("/tasks/:id", async (req, res, next) => {
-  try {
-    const id = parseTaskId(req);
-    if (id === null) return sendFail(res, 400, "Invalid task id.");
+v1.put(
+  "/tasks/:id",
+  validate(
+    [
+      param("id").isInt({ min: 1 }).toInt(),
+      body("title").isString().trim().notEmpty(),
+      body("done").isBoolean().toBoolean(),
+    ],
+    "Invalid task payload."
+  ),
+  async (req, res, next) => {
+    try {
+      const { id } = matchedData(req, { locations: ["params"] });
+      const data = matchedData(req, { locations: ["body"] });
+      const updated = await taskRepo.update(id, {
+        title: data.title,
+        done: data.done,
+      });
 
-    const validation = validateTaskPayload(req.body);
-    if (validation) return sendFail(res, 400, validation.message, validation.errors);
-
-    const updated = await taskRepo.update(id, {
-      title: req.body.title.trim(),
-      done: req.body.done,
-    });
-
-    if (!updated) return sendFail(res, 404, "Task not found.");
-    sendSuccess(res, updated);
-  } catch (err) {
-    next(err);
+      if (!updated) return sendFail(res, 404, "Task not found.");
+      sendSuccess(res, updated);
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
-v1.delete("/tasks/:id", async (req, res, next) => {
-  try {
-    const id = parseTaskId(req);
-    if (id === null) return sendFail(res, 400, "Invalid task id.");
+v1.delete(
+  "/tasks/:id",
+  validate([param("id").isInt({ min: 1 }).toInt()], "Invalid task id."),
+  async (req, res, next) => {
+    try {
+      const { id } = matchedData(req, { locations: ["params"] });
+      const ok = await taskRepo.delete(id);
+      if (!ok) return sendFail(res, 404, "Task not found.");
 
-    const ok = await taskRepo.delete(id);
-    if (!ok) return sendFail(res, 404, "Task not found.");
-
-    sendSuccess(res, { deleted: true });
-  } catch (err) {
-    next(err);
+      sendSuccess(res, { deleted: true });
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 app.use("/v1", v1);
 
