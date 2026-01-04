@@ -310,6 +310,14 @@ test.describe("HTTP API", () => {
     try {
       return await handler(loaded);
     } finally {
+      // Clean up any database pool created by the isolated server
+      if (loaded.app?.locals?.pgPool) {
+        try {
+          await loaded.app.locals.pgPool.end();
+        } catch (err) {
+          // Ignore cleanup errors
+        }
+      }
       delete require.cache[require.resolve("./server")];
     }
   }

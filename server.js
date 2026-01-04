@@ -529,7 +529,7 @@ v1.get(
       const sort = data.sort ?? "id";
       const order = data.order ?? "asc";
 
-      const q = typeof data.q === "string" ? data.q.trim() : "";
+      const q = typeof data.q === "string" ? data.q : "";
       const qFilter = q.length > 0 ? q : undefined;
 
       const { items, total } = await taskRepo.list({
