@@ -6,13 +6,44 @@ const { Pool } = require("pg"); // npm i pg
 const pino = require("pino");
 
 const app = express();
-const port = Number(process.env.PORT) || 3000;
 
 // Initialize structured logger
 const loggerConfig = {
   level: process.env.LOG_LEVEL || 'info',
 };
 const logger = pino(loggerConfig);
+
+// -----------------------------------------------------------------------------
+// Environment validation (minimal)
+// -----------------------------------------------------------------------------
+
+const allowedNodeEnvs = new Set(["development", "test", "production"]);
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = "development";
+  logger.warn('NODE_ENV not set, defaulting to "development"');
+} else if (!allowedNodeEnvs.has(process.env.NODE_ENV)) {
+  throw new Error(`Invalid NODE_ENV: "${process.env.NODE_ENV}"`);
+}
+
+function parsePort(value, defaultValue) {
+  if (value === undefined || value === "") return defaultValue;
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 65535) {
+    throw new Error(`Invalid PORT: "${value}", expected integer 1-65535`);
+  }
+  return parsed;
+}
+
+if (process.env.DATABASE_URL) {
+  const isPostgresUrl =
+    process.env.DATABASE_URL.startsWith("postgres://") ||
+    process.env.DATABASE_URL.startsWith("postgresql://");
+  if (!isPostgresUrl) {
+    throw new Error('DATABASE_URL must start with "postgres://" or "postgresql://"');
+  }
+}
+
+const port = parsePort(process.env.PORT, 3000);
 
 // -----------------------------------------------------------------------------
 // Basic security & hardening
