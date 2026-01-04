@@ -10,9 +10,9 @@ const cors = require("cors");
 
 const app = express();
 
-// Initialize structured logger
+// Initialize structured logger (pino uses LOG_LEVEL to control verbosity)
 const loggerConfig = {
-  level: process.env.LOG_LEVEL || 'info',
+  level: process.env.LOG_LEVEL || "info",
 };
 const logger = pino(loggerConfig);
 
