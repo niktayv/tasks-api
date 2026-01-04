@@ -437,6 +437,56 @@ test.describe("HTTP API", () => {
     });
   });
 
+  test("v1: list rejects invalid query parameters", async () => {
+    await withServer(async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/v1/tasks?limit=-1&done=maybe`);
+      assert.equal(res.status, 400);
+
+      const body = await res.json();
+      assert.equal(body.status, "fail");
+      assert.equal(body.message, "Invalid query parameters.");
+      assert.ok(body.details);
+      assert.ok(Array.isArray(body.details.validation));
+    });
+  });
+
+  test("v1: list trims q and uses default sort/order", async () => {
+    await resetPostgresIfEnabled();
+
+    await withServer(async (baseUrl) => {
+      const create = (title) => fetch(`${baseUrl}/v1/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, done: false }),
+      });
+
+      await create("Buy milk");
+      await create("Walk dog");
+
+      const res = await fetch(`${baseUrl}/v1/tasks?q=%20buy%20`);
+      assert.equal(res.status, 200);
+
+      const body = await res.json();
+      assert.equal(body.status, "success");
+      assert.equal(body.data.sort.field, "id");
+      assert.equal(body.data.sort.order, "asc");
+      assert.equal(body.data.items.length, 1);
+      assert.equal(body.data.items[0].title, "Buy milk");
+    });
+  });
+
+  test("v1: get rejects invalid id", async () => {
+    await withServer(async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/v1/tasks/abc`);
+      assert.equal(res.status, 400);
+
+      const body = await res.json();
+      assert.equal(body.status, "fail");
+      assert.equal(body.message, "Invalid task id.");
+      assert.ok(body.details);
+    });
+  });
+
   test("v1: list pagination returns JSend envelope", async () => {
     await resetPostgresIfEnabled();
 
