@@ -295,7 +295,7 @@ test.describe("HTTP API", () => {
 
     try {
       await withServer(async (baseUrl) => {
-        const res = await fetch(`${baseUrl}/`);
+        const res = await fetch(`${baseUrl}/health`);
         assert.equal(res.status, 503);
 
         const body = await res.json();
@@ -306,6 +306,20 @@ test.describe("HTTP API", () => {
       app.locals.pgPool = originalPool;
       logger.error = originalLoggerError;
     }
+  });
+
+  test("root returns minimal JSend success payload", async () => {
+    await withServer(async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/`);
+      assert.equal(res.status, 200);
+
+      const body = await res.json();
+      assert.equal(body.status, "success");
+      assert.equal(body.data.service, "tasks-api");
+      assert.equal(body.data.status, "ok");
+      assert.ok(body.data.timestamp);
+      assert.equal(body.data.db, undefined);
+    });
   });
 
   async function resetPostgresIfEnabled() {

@@ -400,7 +400,7 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 // Routes
 // -----------------------------------------------------------------------------
 
-app.get("/", async (req, res) => {
+app.get("/health", async (req, res) => {
   const pool = req.app.locals.pgPool;
   const dbMode = pool ? "postgres" : "memory";
 
@@ -418,6 +418,14 @@ app.get("/", async (req, res) => {
     status: "ok",
     timestamp: new Date().toISOString(),
     db: { status: "ok", mode: dbMode },
+  });
+});
+
+app.get("/", (req, res) => {
+  sendSuccess(res, {
+    service: "tasks-api",
+    status: "ok",
+    timestamp: new Date().toISOString(),
   });
 });
 
