@@ -55,6 +55,34 @@ Query parameters for `GET /v1/tasks`:
 
 All routes respond in a JSend-style envelope.
 
+Error envelope shape (consistent across `/v1` and global handlers):
+
+```
+{
+  "status": "error",
+  "message": "Internal server error"
+}
+```
+
+Fail envelope shape (used for validation and not-found responses):
+
+```
+{
+  "status": "fail",
+  "code": 400,
+  "message": "Invalid task payload.",
+  "details": {
+    "validation": [
+      {
+        "msg": "Invalid value",
+        "param": "title",
+        "location": "body"
+      }
+    ]
+  }
+}
+```
+
 Success example:
 
 ```

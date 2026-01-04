@@ -155,8 +155,11 @@ function parseEnvInt(name, defaultValue) {
 }
 
 // -----------------------------------------------------------------------------
-// JSend helpers
+// JSend helpers (consistent error shape across all handlers)
 // -----------------------------------------------------------------------------
+// success: { status: "success", data }
+// fail: { status: "fail", code, message, details? }
+// error: { status: "error", message }
 
 function sendSuccess(res, data, statusCode = 200) {
   res.status(statusCode).json({ status: "success", data });
