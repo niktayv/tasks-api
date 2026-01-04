@@ -6,6 +6,7 @@ const { Pool } = require("pg"); // npm i pg
 const pino = require("pino");
 const pinoHttp = require("pino-http");
 const { randomUUID } = require("node:crypto");
+const cors = require("cors");
 
 const app = express();
 
@@ -36,6 +37,32 @@ function parsePort(value, defaultValue) {
   return parsed;
 }
 
+function parseEnvBoolean(name, defaultValue) {
+  const value = process.env[name];
+  if (value === undefined || value === "") return defaultValue;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`Invalid ${name}: "${value}", expected "true" or "false"`);
+}
+
+function parseAllowedOrigins(value) {
+  if (!value) return [];
+  const origins = value.split(",").map((origin) => origin.trim()).filter(Boolean);
+  for (const origin of origins) {
+    if (origin === "*" || origin === "null") continue;
+    let url;
+    try {
+      url = new URL(origin);
+    } catch (err) {
+      throw new Error(`Invalid ALLOWED_ORIGINS entry: "${origin}"`);
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error(`Invalid ALLOWED_ORIGINS entry: "${origin}"`);
+    }
+  }
+  return origins;
+}
+
 if (process.env.DATABASE_URL) {
   const isPostgresUrl =
     process.env.DATABASE_URL.startsWith("postgres://") ||
@@ -46,6 +73,11 @@ if (process.env.DATABASE_URL) {
 }
 
 const port = parsePort(process.env.PORT, 3000);
+const allowCredentials = parseEnvBoolean("ALLOW_CREDENTIALS", false);
+const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+if (allowCredentials && allowedOrigins.includes("*")) {
+  throw new Error('ALLOWED_ORIGINS cannot include "*" when ALLOW_CREDENTIALS=true');
+}
 
 // -----------------------------------------------------------------------------
 // Basic security & hardening
@@ -55,6 +87,18 @@ app.disable("x-powered-by");
 app.use(helmet());
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: false, limit: "100kb" }));
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (allowedOrigins.length === 0) return callback(null, false);
+      if (!origin) return callback(null, false);
+      if (allowedOrigins.includes("*")) return callback(null, true);
+      return callback(null, allowedOrigins.includes(origin));
+    },
+    credentials: allowCredentials,
+    optionsSuccessStatus: 204,
+  })
+);
 app.use(
   pinoHttp({
     logger,
