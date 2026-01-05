@@ -1,65 +1,69 @@
 # GitHub Actions CI Guide
 
-This file shows a simple GitHub Actions setup for running the test suite with and without Postgres. It assumes you are using GitHub-hosted runners and want a minimal, reliable pipeline.
+This file documents the GitHub Actions workflows in this repo for running the test suite with and without Postgres. It assumes GitHub-hosted runners and a minimal, reliable setup.
 
 ## Minimal Steps (Concept)
 
-These are the two commands you want to run in CI. The first runs fast in-memory tests, the second runs Postgres-backed tests.
+These are the two minimal flows. Both rely on a `.env.test` file and run serially.
+
+In-memory:
 
 ```yaml
 steps:
-  - run: npm test
-  - run: DATABASE_URL="postgres://postgres:password@localhost:5432/tasks_dev" npm run test:pg
+  - run: |
+      cat > .env.test <<'EOF'
+      NODE_ENV=test
+      LOG_LEVEL=warn
+      DATABASE_URL=
+      ALLOWED_ORIGINS=
+      ALLOW_CREDENTIALS=false
+      RATE_LIMIT_WINDOW_MS=900000
+      RATE_LIMIT_MAX=100
+      EOF
+  - run: node --test --test-concurrency=1 --env-file=.env.test
 ```
 
-## GitHub Actions Example (with Postgres service)
-
-1. Create a workflow file at `.github/workflows/ci.yml`.
-2. Paste the workflow below.
-3. Commit and push to GitHub. The workflow will run on every push and pull request.
+Postgres:
 
 ```yaml
-name: CI
-
-on:
-  push:
-  pull_request:
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: tasks_dev
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci
-      - run: npm test
-      - run: DATABASE_URL="postgres://postgres:password@localhost:5432/tasks_dev" npm run test:pg
+steps:
+  - run: |
+      cat > .env.test <<'EOF'
+      NODE_ENV=test
+      LOG_LEVEL=warn
+      DATABASE_URL=postgres://tasks:tasks@localhost:5432/tasks_test
+      ALLOWED_ORIGINS=
+      ALLOW_CREDENTIALS=false
+      RATE_LIMIT_WINDOW_MS=900000
+      RATE_LIMIT_MAX=100
+      EOF
+  - run: node --test --test-concurrency=1 --env-file=.env.test
 ```
+
+## GitHub Actions Workflows in This Repo
+
+This repo uses two workflows:
+
+- `.github/workflows/ci.yml`: in-memory tests on push and pull request.
+- `.github/workflows/ci-postgres.yml`: Postgres tests on manual trigger (`workflow_dispatch`).
+
+Both workflows:
+
+- use Node.js `20.12.2`.
+- run `npm ci`.
+- create a `.env.test` file.
+- run `node --test --test-concurrency=1 --env-file=.env.test`.
 
 ### Notes
 
-- The Postgres service is available on `localhost:5432` within the runner.
-- The `DATABASE_URL` used in `npm run test:pg` must match the service credentials.
-- If the Postgres service is slow to start, the health check settings ensure the runner waits before running tests.
+- The Postgres workflow provisions a service container and uses `DATABASE_URL=postgres://tasks:tasks@localhost:5432/tasks_test`.
+- The in-memory workflow intentionally leaves `DATABASE_URL` unset so Postgres tests are skipped.
+- Serial test execution is required because the HTTP tests mutate shared `app.locals`/module cache state.
 
 ### Troubleshooting
 
-- **Postgres not ready**: Increase `--health-interval` or `--health-retries`, or add a small sleep before running tests.
-- **Auth failures**: Double-check `POSTGRES_PASSWORD`, `POSTGRES_DB`, and the `DATABASE_URL` string.
-- **Node version mismatch**: Ensure `actions/setup-node` uses a version compatible with `package.json` (`node >= 20.6`).
+- **Postgres not ready**: Increase `--health-interval` or `--health-retries` in `.github/workflows/ci-postgres.yml`.
+- **Auth failures**: Double-check `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, and the `DATABASE_URL` string.
+- **Node version mismatch**: Ensure `actions/setup-node` matches the workflow version (`20.12.2`).
 - **`npm ci` fails**: Confirm `package-lock.json` exists and is in sync with `package.json`.
 - **Re-run failed jobs**: In the GitHub Actions UI, open the run and click **Re-run jobs** or **Re-run failed jobs**. See https://docs.github.com/en/actions/managing-workflow-runs/re-running-workflows-and-jobs
