@@ -4,15 +4,11 @@ Already covered: structured logging, DB-aware health check, basic HTTP tests (JS
 
 ## Must Fix for Production
 
-- Add request logging middleware (e.g., `pino-http`) for per-request logs.
 - Validate task title length (define max length; enforce in `validateTaskPayload`).
-- Add rate limiting.
 
 ## Should Fix for Production
 
-- Add CORS configuration (if needed by clients).
 - Validate `Content-Type: application/json` for JSON endpoints.
-- Add request ID/correlation tracking.
 - Validate database connectivity on startup (not just in health check).
 - Limit search query length (`search`) to prevent abusive scans.
 - Add `pg.Pool` error handlers (`pool.on("error", ...)`).

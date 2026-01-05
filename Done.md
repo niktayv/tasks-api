@@ -5,6 +5,7 @@ This project has already addressed the following improvements versus the initial
 ## Summary
 
 - Structured logging with Pino (configurable `LOG_LEVEL`, contextual errors, sanitized headers).
+- Request logging middleware via `pino-http`.
 - Health check verifies DB connectivity and reports DB mode; returns 503 if unavailable.
 - Graceful shutdown with timeout protection and safe pool shutdown.
 - Postgres configuration via env (`PG_POOL_MAX`, `PG_IDLE_TIMEOUT`, `PG_CONNECTION_TIMEOUT`, `PG_STATEMENT_TIMEOUT`), enabled when `DATABASE_URL` is set.
@@ -12,6 +13,9 @@ This project has already addressed the following improvements versus the initial
 - Pagination optimized with a single query using `COUNT(*) OVER()`.
 - JSend responses everywhere with consistent status handling.
 - Validation for IDs, payloads, and query params.
+- CORS configuration with allowlist support.
+- Request ID/correlation tracking via `X-Request-ID`.
+- Rate limiting for `/v1` routes.
 - /v1 routing, repository abstraction, and Postgres integration.
 - `app` and `logger` exports for tests.
 
