@@ -292,42 +292,44 @@ function PostgresTaskRepository(pool) {
 
   return {
     async list({ limit, offset, done, search, sort, order }) {
-      const conditions = [];
-      const params = [];
-      let i = 1;
+      const whereClauses = [];
+      const queryParams = [];
+      let paramIndex = 1;
 
       if (done !== undefined) {
-        conditions.push(`done = $${i++}`);
-        params.push(done);
+        whereClauses.push(`done = $${paramIndex++}`);
+        queryParams.push(done);
       }
 
       if (search) {
-        conditions.push(`title ILIKE $${i++} ESCAPE '\\'`);
-        params.push(`%${escapeLike(search)}%`);
+        whereClauses.push(`title ILIKE $${paramIndex++} ESCAPE '\\'`);
+        queryParams.push(`%${escapeLike(search)}%`);
       }
 
-      const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+      const whereClause = whereClauses.length
+        ? `WHERE ${whereClauses.join(" AND ")}`
+        : "";
 
       // Deterministic order + tie-breaker
-      const sortCol = SORT_COLUMN[sort] || "id";
-      const sortDir = order === "desc" ? "DESC" : "ASC";
+      const sortColumn = SORT_COLUMN[sort] || "id";
+      const sortDirection = order === "desc" ? "DESC" : "ASC";
 
       // For stable pagination, tie-break on id. (Always ASC tie-break.)
       const orderBy =
-        sortCol === "id"
-          ? `ORDER BY id ${sortDir}`
-          : `ORDER BY ${sortCol} ${sortDir}, id ASC`;
+        sortColumn === "id"
+          ? `ORDER BY id ${sortDirection}`
+          : `ORDER BY ${sortColumn} ${sortDirection}, id ASC`;
 
       // Single query with window function for total (count before LIMIT/OFFSET).
       const sql = `
         SELECT id, title, done, (COUNT(*) OVER())::int AS total
         FROM tasks
-        ${where}
+        ${whereClause}
         ${orderBy}
-        LIMIT $${i++} OFFSET $${i++};
+        LIMIT $${paramIndex++} OFFSET $${paramIndex++};
       `;
-      const queryParams = params.concat([limit, offset]);
-      const result = await pool.query(sql, queryParams);
+      const boundParams = queryParams.concat([limit, offset]);
+      const result = await pool.query(sql, boundParams);
       const rows = result.rows;
 
       const total = rows.length > 0 ? rows[0].total : 0;
