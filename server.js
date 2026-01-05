@@ -395,10 +395,7 @@ if (process.env.DATABASE_URL) {
     throw err;
   }
 } else {
-  taskRepo = InMemoryTaskRepository([
-    { id: 1, title: "Buy milk", done: false },
-    { id: 2, title: "Walk dog", done: true },
-  ]);
+  taskRepo = InMemoryTaskRepository([]);
   logger.info("Using InMemoryTaskRepository");
 }
 app.locals.pgPool = pgPool;

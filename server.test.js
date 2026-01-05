@@ -99,12 +99,12 @@ function defineRepoContractSuite(name) {
 
     test("list() returns deterministic ordering and correct totals", async () => {
       // seed data
-      await repo.create({ title: "Buy milk", done: false });
-      await repo.create({ title: "Walk dog", done: true });
-      await repo.create({ title: "Buy bread", done: false });
+      await repo.create({ title: "Draft report", done: false });
+      await repo.create({ title: "Call client", done: true });
+      await repo.create({ title: "File receipts", done: false });
       // Add duplicate titles to test tie-breaker
-      await repo.create({ title: "Same title", done: false });
-      await repo.create({ title: "Same title", done: true });
+      await repo.create({ title: "Repeat task", done: false });
+      await repo.create({ title: "Repeat task", done: true });
 
       // sort by title asc; tie-breaker should be by id asc
       const r1 = await repo.list({
@@ -121,11 +121,11 @@ function defineRepoContractSuite(name) {
 
       assert.deepEqual(
         r1.items.map((t) => t.title),
-        ["Buy bread", "Buy milk", "Same title", "Same title", "Walk dog"]
+        ["Call client", "Draft report", "File receipts", "Repeat task", "Repeat task"]
       );
 
       // Verify tie-breaker: same titles should be ordered by id asc
-      const sameTitleItems = r1.items.filter((t) => t.title === "Same title");
+      const sameTitleItems = r1.items.filter((t) => t.title === "Repeat task");
       assert.equal(sameTitleItems.length, 2);
       assert.ok(sameTitleItems[0].id < sameTitleItems[1].id);
 
@@ -155,15 +155,15 @@ function defineRepoContractSuite(name) {
 
       assert.deepEqual(
         [...page1.items, ...page2.items].map((t) => t.title),
-        ["Buy bread", "Buy milk", "Same title", "Same title"]
+        ["Call client", "Draft report", "File receipts", "Repeat task"]
       );
     });
 
     test("filters: done and q behave consistently", async () => {
       // seed data
-      await repo.create({ title: "Buy milk", done: false });
-      await repo.create({ title: "Walk dog", done: true });
-      await repo.create({ title: "Buy bread", done: false });
+      await repo.create({ title: "Draft report", done: false });
+      await repo.create({ title: "Call client", done: true });
+      await repo.create({ title: "File receipts", done: false });
 
       const doneFalse = await repo.list({
         limit: 50,
@@ -177,17 +177,17 @@ function defineRepoContractSuite(name) {
       assert.equal(doneFalse.items.length, 2);
       assert.ok(doneFalse.items.every((t) => t.done === false));
 
-      const qBuy = await repo.list({
+      const qDraft = await repo.list({
         limit: 50,
         offset: 0,
         done: undefined,
-        q: "buy",
+        q: "draft",
         sort: "id",
         order: "asc",
       });
 
-      assert.equal(qBuy.items.length, 2);
-      assert.ok(qBuy.items.every((t) => t.title.toLowerCase().includes("buy")));
+      assert.equal(qDraft.items.length, 1);
+      assert.ok(qDraft.items.every((t) => t.title.toLowerCase().includes("draft")));
     });
 
     test("getById returns created task and null for missing id", async () => {
@@ -468,10 +468,10 @@ test.describe("HTTP API", () => {
         body: JSON.stringify({ title, done: false }),
       });
 
-      await create("Buy milk");
-      await create("Walk dog");
+      await create("Draft report");
+      await create("Call client");
 
-      const res = await fetch(`${baseUrl}/v1/tasks?q=%20buy%20`);
+      const res = await fetch(`${baseUrl}/v1/tasks?q=%20draft%20`);
       assert.equal(res.status, 200);
 
       const body = await res.json();
@@ -479,7 +479,7 @@ test.describe("HTTP API", () => {
       assert.equal(body.data.sort.field, "id");
       assert.equal(body.data.sort.order, "asc");
       assert.equal(body.data.items.length, 1);
-      assert.equal(body.data.items[0].title, "Buy milk");
+      assert.equal(body.data.items[0].title, "Draft report");
     });
   });
 
@@ -505,8 +505,8 @@ test.describe("HTTP API", () => {
         body: JSON.stringify({ title, done: false }),
       });
 
-      await create("Task A");
-      await create("Task B");
+      await create("First task");
+      await create("Second task");
 
       const res = await fetch(`${baseUrl}/v1/tasks?limit=1&offset=0&sort=id&order=asc`);
       assert.equal(res.status, 200);
