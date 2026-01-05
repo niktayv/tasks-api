@@ -22,6 +22,14 @@ Everything lives in `server.js`, but it is organized by clear sections:
 - **Error handling**: structured logging and consistent error responses.
 - **Graceful shutdown**: closes server and DB pool on SIGINT/SIGTERM.
 
+## Task model
+
+Tasks have a minimal shape:
+
+- `id` (integer, server-assigned)
+- `title` (string, required)
+- `done` (boolean, required)
+
 ## API Overview
 
 Base URL: `http://localhost:3000`
