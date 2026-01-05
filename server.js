@@ -197,7 +197,7 @@ function validate(validations, message) {
 //
 // By convention, a "TaskRepository" exposes these async methods:
 //
-// - list({ limit, offset, done, q, sort, order }) -> { items, total }
+// - list({ limit, offset, done, search, sort, order }) -> { items, total }
 // - getById(id) -> task | null
 // - create({ title, done }) -> task
 // - update(id, { title, done }) -> task | null
@@ -217,13 +217,13 @@ function InMemoryTaskRepository(seedTasks = []) {
   }
 
   return {
-    async list({ limit, offset, done, q, sort, order }) {
+    async list({ limit, offset, done, search, sort, order }) {
       let filtered = tasks;
 
       if (done !== undefined) filtered = filtered.filter((t) => t.done === done);
-      if (q) {
-        const qLower = q.toLowerCase();
-        filtered = filtered.filter((t) => t.title.toLowerCase().includes(qLower));
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filtered = filtered.filter((t) => t.title.toLowerCase().includes(searchLower));
       }
 
       const direction = order === "asc" ? 1 : -1;
@@ -291,7 +291,7 @@ function PostgresTaskRepository(pool) {
   }
 
   return {
-    async list({ limit, offset, done, q, sort, order }) {
+    async list({ limit, offset, done, search, sort, order }) {
       const conditions = [];
       const params = [];
       let i = 1;
@@ -301,9 +301,9 @@ function PostgresTaskRepository(pool) {
         params.push(done);
       }
 
-      if (q) {
+      if (search) {
         conditions.push(`title ILIKE $${i++} ESCAPE '\\'`);
-        params.push(`%${escapeLike(q)}%`);
+        params.push(`%${escapeLike(search)}%`);
       }
 
       const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -513,7 +513,7 @@ v1.get(
       query("done").optional().isBoolean().toBoolean(),
       query("sort").optional().isIn(["id", "title", "done"]),
       query("order").optional().isIn(["asc", "desc"]),
-      query("q").optional().trim(),
+          query("search").optional().trim(),
     ],
     "Invalid query parameters."
   ),
@@ -526,14 +526,14 @@ v1.get(
       const sort = data.sort ?? "id";
       const order = data.order ?? "asc";
 
-      const q = typeof data.q === "string" ? data.q : "";
-      const qFilter = q.length > 0 ? q : undefined;
+      const search = typeof data.search === "string" ? data.search : "";
+      const searchFilter = search.length > 0 ? search : undefined;
 
       const { items, total } = await taskRepo.list({
         limit,
         offset,
         done,
-        q: qFilter,
+        search: searchFilter,
         sort,
         order,
       });
@@ -549,7 +549,7 @@ v1.get(
         },
         filters: {
           done,
-          q: qFilter,
+          search: searchFilter,
         },
         sort: { field: sort, order },
       });

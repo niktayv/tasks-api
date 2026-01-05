@@ -47,7 +47,7 @@ Query parameters for `GET /v1/tasks`:
 - `limit` (default `20`, max `100`)
 - `offset` (default `0`)
 - `done` (`true` or `false`)
-- `q` (case-insensitive substring match on title)
+- `search` (case-insensitive substring match on title)
 - `sort` (`id`, `title`, `done`)
 - `order` (`asc`, `desc`)
 
@@ -115,7 +115,7 @@ List pagination example:
     },
     "filters": {
       "done": false,
-      "q": "buy"
+      "search": "buy"
     },
     "sort": { "field": "title", "order": "asc" }
   }
@@ -147,7 +147,7 @@ curl http://localhost:3000/
 List tasks (with filtering and pagination):
 
 ```
-curl "http://localhost:3000/v1/tasks?limit=10&offset=0&done=false&q=buy&sort=title&order=asc"
+curl "http://localhost:3000/v1/tasks?limit=10&offset=0&done=false&search=buy&sort=title&order=asc"
 ```
 
 Fetch a task by id:

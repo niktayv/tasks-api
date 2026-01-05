@@ -64,7 +64,7 @@ This project has already addressed the following improvements versus the initial
    - Graceful shutdown closes pool and server.
 
 12) Additional features
-   - Filtering by done, search by q, sorting with deterministic tie-breaks.
+  - Filtering by done, search by the search param, sorting with deterministic tie-breaks.
 
 ## Project Structure Snapshot
 

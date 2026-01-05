@@ -111,7 +111,7 @@ function defineRepoContractSuite(name) {
         limit: 50,
         offset: 0,
         done: undefined,
-        q: undefined,
+        search: undefined,
         sort: "title",
         order: "asc",
       });
@@ -134,7 +134,7 @@ function defineRepoContractSuite(name) {
         limit: 2,
         offset: 0,
         done: undefined,
-        q: undefined,
+        search: undefined,
         sort: "title",
         order: "asc",
       });
@@ -143,7 +143,7 @@ function defineRepoContractSuite(name) {
         limit: 2,
         offset: 2,
         done: undefined,
-        q: undefined,
+        search: undefined,
         sort: "title",
         order: "asc",
       });
@@ -159,7 +159,7 @@ function defineRepoContractSuite(name) {
       );
     });
 
-    test("filters: done and q behave consistently", async () => {
+    test("filters: done and search behave consistently", async () => {
       // seed data
       await repo.create({ title: "Draft report", done: false });
       await repo.create({ title: "Call client", done: true });
@@ -169,7 +169,7 @@ function defineRepoContractSuite(name) {
         limit: 50,
         offset: 0,
         done: false,
-        q: undefined,
+        search: undefined,
         sort: "id",
         order: "asc",
       });
@@ -177,17 +177,17 @@ function defineRepoContractSuite(name) {
       assert.equal(doneFalse.items.length, 2);
       assert.ok(doneFalse.items.every((t) => t.done === false));
 
-      const qDraft = await repo.list({
+      const searchDraft = await repo.list({
         limit: 50,
         offset: 0,
         done: undefined,
-        q: "draft",
+        search: "draft",
         sort: "id",
         order: "asc",
       });
 
-      assert.equal(qDraft.items.length, 1);
-      assert.ok(qDraft.items.every((t) => t.title.toLowerCase().includes("draft")));
+      assert.equal(searchDraft.items.length, 1);
+      assert.ok(searchDraft.items.every((t) => t.title.toLowerCase().includes("draft")));
     });
 
     test("getById returns created task and null for missing id", async () => {
@@ -458,7 +458,7 @@ test.describe("HTTP API", () => {
     });
   });
 
-  test("v1: list trims q and uses default sort/order", async () => {
+  test("v1: list trims search and uses default sort/order", async () => {
     await resetPostgresIfEnabled();
 
     await withServer(async (baseUrl) => {
@@ -471,7 +471,7 @@ test.describe("HTTP API", () => {
       await create("Draft report");
       await create("Call client");
 
-      const res = await fetch(`${baseUrl}/v1/tasks?q=%20draft%20`);
+      const res = await fetch(`${baseUrl}/v1/tasks?search=%20draft%20`);
       assert.equal(res.status, 200);
 
       const body = await res.json();

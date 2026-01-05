@@ -14,7 +14,7 @@ Already covered: structured logging, DB-aware health check, basic HTTP tests (JS
 - Validate `Content-Type: application/json` for JSON endpoints.
 - Add request ID/correlation tracking.
 - Validate database connectivity on startup (not just in health check).
-- Limit search query length (`q`) to prevent abusive scans.
+- Limit search query length (`search`) to prevent abusive scans.
 - Add `pg.Pool` error handlers (`pool.on("error", ...)`).
 - Add process-level error handlers (`unhandledRejection`, `uncaughtException`).
 - Clarify/restore repository selection behavior (`DATABASE_URL` now overrides any desire to force in-memory).
