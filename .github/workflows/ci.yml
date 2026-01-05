@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.12.2"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      - name: Create .env.test (in-memory mode)
+        run: |
+          cat > .env.test <<'EOF'
+          NODE_ENV=test
+          LOG_LEVEL=warn
+
+          # Intentionally unset so tests skip Postgres suite and server.js uses InMemoryTaskRepository
+          DATABASE_URL=
+
+          ALLOWED_ORIGINS=
+          ALLOW_CREDENTIALS=false
+          RATE_LIMIT_WINDOW_MS=900000
+          RATE_LIMIT_MAX=100
+          EOF
+
+      - name: Run tests
+        # Serial execution avoids shared app.locals/require cache mutations in HTTP tests.
+        run: node --test --test-concurrency=1 --env-file=.env.test

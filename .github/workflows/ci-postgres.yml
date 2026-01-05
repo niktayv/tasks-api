@@ -1,0 +1,59 @@
+name: CI (Postgres)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  test-postgres:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tasks
+          POSTGRES_PASSWORD: tasks
+          POSTGRES_DB: tasks_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tasks -d tasks_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.12.2"
+          cache: "npm"
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Create .env.test (postgres mode)
+        run: |
+          cat > .env.test <<'EOF'
+          NODE_ENV=test
+          LOG_LEVEL=warn
+          DATABASE_URL=postgres://tasks:tasks@localhost:5432/tasks_test
+          ALLOWED_ORIGINS=
+          ALLOW_CREDENTIALS=false
+          RATE_LIMIT_WINDOW_MS=900000
+          RATE_LIMIT_MAX=100
+          EOF
+
+      - name: Init schema
+        env:
+          PGPASSWORD: tasks
+        run: |
+          psql "postgres://tasks@localhost:5432/tasks_test" -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE IF NOT EXISTS tasks (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            done BOOLEAN NOT NULL DEFAULT FALSE
+          );
+          SQL
+
+      - name: Run tests
+        run: node --test --test-concurrency=1 --env-file=.env.test
