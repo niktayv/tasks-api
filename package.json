@@ -1,7 +1,7 @@
 {
   "name": "tasks_api",
   "version": "1.0.0",
-  "description": "Thank you for taking the time to complete this short technical exercise. Attached below is a simple Node.js/Express API. It works, but it’s intentionally written in a rough style.",
+  "description": "An example RESTful API for managing tasks using Node.js, Express, and PostgreSQL.",
   "main": "server.js",
   "scripts": {
     "dev": "node --watch --env-file=.env server.js",
