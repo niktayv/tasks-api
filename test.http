@@ -1,0 +1,168 @@
+@baseUrl = http://localhost:3000
+
+# =============================================================================
+# Meta endpoints
+# =============================================================================
+
+### Root — service info
+GET {{baseUrl}}/
+
+###
+
+### Health check
+GET {{baseUrl}}/health
+
+# =============================================================================
+# Tasks — list & filter
+# =============================================================================
+
+### List all tasks (defaults: sort=id asc, limit=20, offset=0)
+GET {{baseUrl}}/v1/tasks
+
+###
+
+### List with pagination
+GET {{baseUrl}}/v1/tasks
+  ?limit=5
+  &offset=0
+  &sort=id
+  &order=asc
+
+###
+
+### Filter by done=false
+GET {{baseUrl}}/v1/tasks
+  ?done=false
+  &sort=title
+  &order=asc
+
+###
+
+### Filter by done=true
+GET {{baseUrl}}/v1/tasks
+  ?done=true
+
+###
+
+### Search by title (case-insensitive, trimmed)
+GET {{baseUrl}}/v1/tasks
+  ?search=report
+
+###
+
+### List — reject invalid query params (expect 400)
+GET {{baseUrl}}/v1/tasks?limit=-1&done=maybe
+
+# =============================================================================
+# Tasks — CRUD
+# =============================================================================
+
+### Create a task
+# @name createTask
+POST {{baseUrl}}/v1/tasks
+Content-Type: application/json
+
+{
+  "title": "Buy groceries",
+  "done": false
+}
+
+###
+
+### Create another task (done=true)
+# @name createDoneTask
+POST {{baseUrl}}/v1/tasks
+Content-Type: application/json
+
+{
+  "title": "Write tests",
+  "done": true
+}
+
+###
+
+### Get the created task by ID (uses response from createTask)
+@createdTaskId = {{createTask.response.body.$.data.id}}
+
+GET {{baseUrl}}/v1/tasks/{{createdTaskId}}
+
+###
+
+### Get task — invalid id (expect 400)
+GET {{baseUrl}}/v1/tasks/abc
+
+###
+
+### Get task — non-existent id (expect 404)
+GET {{baseUrl}}/v1/tasks/999999
+
+###
+
+### Update the created task
+PUT {{baseUrl}}/v1/tasks/{{createdTaskId}}
+Content-Type: application/json
+
+{
+  "title": "Buy groceries and cook dinner",
+  "done": true
+}
+
+###
+
+### Update — invalid payload (expect 400)
+PUT {{baseUrl}}/v1/tasks/{{createdTaskId}}
+Content-Type: application/json
+
+{
+  "title": "",
+  "done": "not-a-boolean"
+}
+
+###
+
+### Update — non-existent id (expect 404)
+PUT {{baseUrl}}/v1/tasks/999999
+Content-Type: application/json
+
+{
+  "title": "Ghost task",
+  "done": false
+}
+
+###
+
+### Delete the created task
+DELETE {{baseUrl}}/v1/tasks/{{createdTaskId}}
+
+###
+
+### Delete — verify task is gone (expect 404)
+GET {{baseUrl}}/v1/tasks/{{createdTaskId}}
+
+###
+
+### Delete — non-existent id (expect 404)
+DELETE {{baseUrl}}/v1/tasks/999999
+
+# =============================================================================
+# Create — invalid payloads
+# =============================================================================
+
+### POST — empty title (expect 400)
+POST {{baseUrl}}/v1/tasks
+Content-Type: application/json
+
+{
+  "title": "",
+  "done": false
+}
+
+###
+
+### POST — missing done field (expect 400)
+POST {{baseUrl}}/v1/tasks
+Content-Type: application/json
+
+{
+  "title": "No done field"
+}
